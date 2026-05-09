@@ -193,7 +193,11 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
     QByteArray audioData = audioFile.readAll();
     audioFile.close();
 
-    QString base64Audio = audioData.toBase64();
+    QString mimeType = "audio/wav";
+    if (audioFilePath.endsWith(".mp3", Qt::CaseInsensitive))
+        mimeType = "audio/mpeg";
+
+    QString base64Audio = "data:" + mimeType + ";base64," + audioData.toBase64();
 
     QString base = apiBase;
     if (base.endsWith('/')) base.chop(1);
@@ -216,8 +220,7 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
 
     QJsonObject audioCfg;
     audioCfg["format"] = format;
-    audioCfg["voice"] = "clone";
-    audioCfg["clone_audio"] = base64Audio;
+    audioCfg["voice"] = base64Audio;
 
     QJsonObject payload;
     payload["model"] = "mimo-v2.5-tts-voiceclone";

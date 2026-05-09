@@ -23,6 +23,7 @@ private slots:
     void onSave();
     void onSaveConfig();
     void onFetchModels();
+    void onVoiceSettings();
 
 private:
     void buildUi();

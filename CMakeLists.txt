@@ -12,6 +12,7 @@ add_executable(mimo_tts
     mainwindow.h mainwindow.cpp
     config.h config.cpp
     ttsengine.h ttsengine.cpp
+    voicesettingsdialog.h voicesettingsdialog.cpp
 )
 
 target_link_libraries(mimo_tts PRIVATE

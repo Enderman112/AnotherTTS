@@ -1,6 +1,7 @@
 #include "config.h"
 #include <QFile>
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QStandardPaths>
 #include <QDir>
 
@@ -27,6 +28,13 @@ void Config::load() {
     if (obj.contains("model")) m_model = obj["model"].toString();
     if (obj.contains("voice")) m_voice = obj["voice"].toString();
     if (obj.contains("output_format")) m_outputFormat = obj["output_format"].toString();
+    if (obj.contains("voices")) {
+        m_voices.clear();
+        QJsonArray arr = obj["voices"].toArray();
+        for (const auto &v : arr) {
+            m_voices.append(v.toString());
+        }
+    }
 }
 
 void Config::save() {
@@ -36,6 +44,12 @@ void Config::save() {
     obj["model"] = m_model;
     obj["voice"] = m_voice;
     obj["output_format"] = m_outputFormat;
+
+    QJsonArray voicesArr;
+    for (const auto &v : m_voices) {
+        voicesArr.append(v);
+    }
+    obj["voices"] = voicesArr;
 
     QFile f(configPath());
     if (f.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
@@ -57,3 +71,6 @@ void Config::setVoice(const QString &v) { m_voice = v; }
 
 QString Config::outputFormat() const { return m_outputFormat; }
 void Config::setOutputFormat(const QString &v) { m_outputFormat = v; }
+
+QStringList Config::voices() const { return m_voices; }
+void Config::setVoices(const QStringList &v) { m_voices = v; }

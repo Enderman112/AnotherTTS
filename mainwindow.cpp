@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "config.h"
 #include "ttsengine.h"
+#include "voicesettingsdialog.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -106,8 +107,12 @@ void MainWindow::buildUi() {
 
     paramLayout->addWidget(new QLabel("声音:"), 0, 3);
     m_voiceCombo = new QComboBox;
-    m_voiceCombo->addItems(TTSEngine::voices());
+    m_voiceCombo->addItems(m_config->voices());
     paramLayout->addWidget(m_voiceCombo, 0, 4);
+
+    auto *voiceSettingsBtn = new QPushButton("设置");
+    connect(voiceSettingsBtn, &QPushButton::clicked, this, &MainWindow::onVoiceSettings);
+    paramLayout->addWidget(voiceSettingsBtn, 0, 5);
 
     paramLayout->addWidget(new QLabel("格式:"), 1, 0);
     m_formatCombo = new QComboBox;
@@ -264,4 +269,15 @@ void MainWindow::onFetchModels() {
     }
     m_statusLabel->setText("正在获取模型列表...");
     m_engine->fetchModels(m_apiBaseEdit->text().trimmed(), apiKey);
+}
+
+void MainWindow::onVoiceSettings() {
+    VoiceSettingsDialog dlg(m_config, this);
+    dlg.exec();
+
+    QString current = m_voiceCombo->currentText();
+    m_voiceCombo->clear();
+    m_voiceCombo->addItems(m_config->voices());
+    int idx = m_voiceCombo->findText(current);
+    if (idx >= 0) m_voiceCombo->setCurrentIndex(idx);
 }

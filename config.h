@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QString>
+#include <QStringList>
 #include <QJsonObject>
 
 class Config {
@@ -25,6 +26,9 @@ public:
     QString outputFormat() const;
     void setOutputFormat(const QString &value);
 
+    QStringList voices() const;
+    void setVoices(const QStringList &value);
+
 private:
     QString configPath() const;
 
@@ -33,4 +37,5 @@ private:
     QString m_model = "mimo-v2.5-tts";
     QString m_voice = "mimo_default";
     QString m_outputFormat = "wav";
+    QStringList m_voices = {"mimo_default", "冰糖", "茉莉", "苏打", "白桦", "Mia", "Chloe", "Milo", "Dean"};
 };

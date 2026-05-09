@@ -135,8 +135,8 @@ void TTSEngine::synthesize(const QString &text, const QString &apiBase, const QS
     connect(reply, &QNetworkReply::finished, this, [this, reply, format]() {
         reply->deleteLater();
 
-        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray responseBody = reply->readAll();
+        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
         if (reply->error() != QNetworkReply::NoError) {
             emit synthesisError(QString("API 请求失败: HTTP %1 - %2\n%3")
@@ -146,11 +146,11 @@ void TTSEngine::synthesize(const QString &text, const QString &apiBase, const QS
             return;
         }
 
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonDocument doc = QJsonDocument::fromJson(responseBody);
         QJsonObject root = doc.object();
         QJsonArray choices = root["choices"].toArray();
         if (choices.isEmpty()) {
-            emit synthesisError("返回数据格式错误");
+            emit synthesisError("返回数据格式错误: " + QString(responseBody).left(200));
             return;
         }
 
@@ -245,8 +245,8 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
     connect(reply, &QNetworkReply::finished, this, [this, reply, format]() {
         reply->deleteLater();
 
-        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         QByteArray responseBody = reply->readAll();
+        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 
         if (reply->error() != QNetworkReply::NoError) {
             emit synthesisError(QString("API 请求失败: HTTP %1 - %2\n%3")
@@ -256,11 +256,11 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
             return;
         }
 
-        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonDocument doc = QJsonDocument::fromJson(responseBody);
         QJsonObject root = doc.object();
         QJsonArray choices = root["choices"].toArray();
         if (choices.isEmpty()) {
-            emit synthesisError("返回数据格式错误");
+            emit synthesisError("返回数据格式错误: " + QString(responseBody).left(200));
             return;
         }
 

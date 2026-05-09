@@ -156,6 +156,7 @@ QWidget *MainWindow::buildTtsTab() {
     auto *textLayout = new QVBoxLayout(textGroup);
     m_textEdit = new QPlainTextEdit;
     m_textEdit->setMinimumHeight(100);
+    m_textEdit->setPlainText("生活就像海洋，只有意志坚强的人才能到达彼岸\nThis is an apple. I like apples. Apples are good for our health.");
     textLayout->addWidget(m_textEdit);
     layout->addWidget(textGroup, 1);
 
@@ -200,6 +201,7 @@ QWidget *MainWindow::buildCloneTab() {
     auto *textLayout = new QVBoxLayout(textGroup);
     m_cloneTextEdit = new QPlainTextEdit;
     m_cloneTextEdit->setMinimumHeight(150);
+    m_cloneTextEdit->setPlainText("生活就像海洋，只有意志坚强的人才能到达彼岸\nThis is an apple. I like apples. Apples are good for our health.");
     textLayout->addWidget(m_cloneTextEdit);
     layout->addWidget(textGroup, 1);
 

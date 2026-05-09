@@ -2,8 +2,7 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
@@ -99,6 +98,14 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+      
+      - name: Generate tag
+        id: tag
+        run: |
+          TAG="v$(date +%Y%m%d-%H%M%S)"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+      
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -107,6 +114,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "Release ${{ steps.tag.outputs.tag }}"
           files: |
             artifacts/mimo_tts-macos/mimo_tts-macos.tar.gz
             artifacts/mimo_tts-windows/mimo_tts-windows.zip

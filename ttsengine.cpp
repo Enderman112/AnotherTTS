@@ -190,6 +190,12 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
         return;
     }
 
+    if (!audioFilePath.endsWith(".wav", Qt::CaseInsensitive) && 
+        !audioFilePath.endsWith(".mp3", Qt::CaseInsensitive)) {
+        emit synthesisError("只支持 .wav 和 .mp3 格式的音频文件");
+        return;
+    }
+
     QFile audioFile(audioFilePath);
     if (!audioFile.open(QIODevice::ReadOnly)) {
         emit synthesisError("无法读取音频文件");
@@ -198,10 +204,12 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
     QByteArray audioData = audioFile.readAll();
     audioFile.close();
 
-    QString mimeType = "audio/wav";
-    if (audioFilePath.endsWith(".mp3", Qt::CaseInsensitive))
-        mimeType = "audio/mpeg";
+    if (audioData.size() > 10 * 1024 * 1024) {
+        emit synthesisError("音频文件不能超过10MB");
+        return;
+    }
 
+    QString mimeType = audioFilePath.endsWith(".mp3", Qt::CaseInsensitive) ? "audio/mpeg" : "audio/wav";
     QString base64Audio = "data:" + mimeType + ";base64," + audioData.toBase64();
 
     QString base = apiBase;

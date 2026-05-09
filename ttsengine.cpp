@@ -108,6 +108,7 @@ void TTSEngine::synthesize(const QString &text, const QString &apiBase, const QS
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     req.setRawHeader("api-key", apiKey.toUtf8());
+    req.setRawHeader("Authorization", ("Bearer " + apiKey).toUtf8());
 
     QJsonArray messages;
     QJsonObject userMsg;
@@ -134,10 +135,14 @@ void TTSEngine::synthesize(const QString &text, const QString &apiBase, const QS
     connect(reply, &QNetworkReply::finished, this, [this, reply, format]() {
         reply->deleteLater();
 
+        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QByteArray responseBody = reply->readAll();
+
         if (reply->error() != QNetworkReply::NoError) {
-            emit synthesisError(QString("API 请求失败: %1 - %2")
-                .arg(reply->error())
-                .arg(reply->errorString()));
+            emit synthesisError(QString("API 请求失败: HTTP %1 - %2\n%3")
+                .arg(httpStatus)
+                .arg(reply->errorString())
+                .arg(QString(responseBody)));
             return;
         }
 
@@ -206,6 +211,7 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
     QNetworkRequest req(url);
     req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
     req.setRawHeader("api-key", apiKey.toUtf8());
+    req.setRawHeader("Authorization", ("Bearer " + apiKey).toUtf8());
 
     QJsonArray messages;
     QJsonObject userMsg;
@@ -231,10 +237,14 @@ void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
     connect(reply, &QNetworkReply::finished, this, [this, reply, format]() {
         reply->deleteLater();
 
+        int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+        QByteArray responseBody = reply->readAll();
+
         if (reply->error() != QNetworkReply::NoError) {
-            emit synthesisError(QString("API 请求失败: %1 - %2")
-                .arg(reply->error())
-                .arg(reply->errorString()));
+            emit synthesisError(QString("API 请求失败: HTTP %1 - %2\n%3")
+                .arg(httpStatus)
+                .arg(reply->errorString())
+                .arg(QString(responseBody)));
             return;
         }
 

@@ -85,6 +85,14 @@ void TTSEngine::fetchModels(const QString &apiBase, const QString &apiKey) {
         if (models.isEmpty())
             models = defaultModels();
 
+        QStringList filtered;
+        for (const auto &m : models) {
+            if (m.contains("tts", Qt::CaseInsensitive))
+                filtered.append(m);
+        }
+        if (!filtered.isEmpty())
+            models = filtered;
+
         emit modelsReceived(models);
     });
 }

@@ -29,7 +29,7 @@ cmake --build build
 ## 运行
 
 ```bash
-./build/mimo_tts
+./build/tts
 ```
 
 ## 配置

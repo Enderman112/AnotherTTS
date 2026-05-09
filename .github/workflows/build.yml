@@ -1,10 +1,9 @@
-name: Build
+name: Build and Release
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -24,11 +23,17 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
       
+      - name: Package
+        run: |
+          mkdir -p release
+          cp build/mimo_tts release/
+          cd release && tar -czf ../mimo_tts-macos.tar.gz *
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mimo_tts-macos
-          path: build/mimo_tts
+          path: mimo_tts-macos.tar.gz
 
   build-windows:
     runs-on: windows-latest
@@ -46,11 +51,14 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
       
+      - name: Package
+        run: Compress-Archive -Path build/Release/mimo_tts.exe -DestinationPath mimo_tts-windows.zip
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mimo_tts-windows
-          path: build/Release/mimo_tts.exe
+          path: mimo_tts-windows.zip
 
   build-linux:
     runs-on: ubuntu-latest
@@ -73,8 +81,34 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
       
+      - name: Package
+        run: |
+          mkdir -p release
+          cp build/mimo_tts release/
+          cd release && tar -czf ../mimo_tts-linux.tar.gz *
+      
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: mimo_tts-linux
-          path: build/mimo_tts
+          path: mimo_tts-linux.tar.gz
+
+  release:
+    needs: [build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/mimo_tts-macos/mimo_tts-macos.tar.gz
+            artifacts/mimo_tts-windows/mimo_tts-windows.zip
+            artifacts/mimo_tts-linux/mimo_tts-linux.tar.gz
+          generate_release_notes: true

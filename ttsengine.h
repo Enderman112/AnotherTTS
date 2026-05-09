@@ -17,6 +17,8 @@ public:
     void synthesize(const QString &text, const QString &apiBase, const QString &apiKey,
                     const QString &model, const QString &voice, const QString &format,
                     const QString &stylePrompt = QString());
+    void cloneVoice(const QString &text, const QString &audioFilePath,
+                    const QString &apiBase, const QString &apiKey, const QString &format);
     void play(const QString &filePath);
     void stop();
     bool isPlaying() const;

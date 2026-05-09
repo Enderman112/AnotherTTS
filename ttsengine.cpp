@@ -170,6 +170,100 @@ void TTSEngine::synthesize(const QString &text, const QString &apiBase, const QS
     });
 }
 
+void TTSEngine::cloneVoice(const QString &text, const QString &audioFilePath,
+                           const QString &apiBase, const QString &apiKey, const QString &format) {
+    if (apiKey.isEmpty()) {
+        emit synthesisError("API Key 不能为空");
+        return;
+    }
+    if (text.trimmed().isEmpty()) {
+        emit synthesisError("合成文本不能为空");
+        return;
+    }
+    if (audioFilePath.isEmpty() || !QFile::exists(audioFilePath)) {
+        emit synthesisError("请选择参考音频文件");
+        return;
+    }
+
+    QFile audioFile(audioFilePath);
+    if (!audioFile.open(QIODevice::ReadOnly)) {
+        emit synthesisError("无法读取音频文件");
+        return;
+    }
+    QByteArray audioData = audioFile.readAll();
+    audioFile.close();
+
+    QString base64Audio = audioData.toBase64();
+
+    QString base = apiBase;
+    if (base.endsWith('/')) base.chop(1);
+    QUrl url(base + "/chat/completions");
+
+    QNetworkRequest req(url);
+    req.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+    req.setRawHeader("api-key", apiKey.toUtf8());
+
+    QJsonArray messages;
+    QJsonObject userMsg;
+    userMsg["role"] = "user";
+    userMsg["content"] = "";
+    messages.append(userMsg);
+
+    QJsonObject assistantMsg;
+    assistantMsg["role"] = "assistant";
+    assistantMsg["content"] = text;
+    messages.append(assistantMsg);
+
+    QJsonObject audioCfg;
+    audioCfg["format"] = format;
+    audioCfg["voice"] = "clone";
+    audioCfg["clone_audio"] = base64Audio;
+
+    QJsonObject payload;
+    payload["model"] = "mimo-v2.5-tts-voiceclone";
+    payload["messages"] = messages;
+    payload["audio"] = audioCfg;
+
+    QNetworkReply *reply = m_nam->post(req, QJsonDocument(payload).toJson(QJsonDocument::Compact));
+    connect(reply, &QNetworkReply::finished, this, [this, reply, format]() {
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            emit synthesisError(QString("API 请求失败: %1 - %2")
+                .arg(reply->error())
+                .arg(reply->errorString()));
+            return;
+        }
+
+        QJsonDocument doc = QJsonDocument::fromJson(reply->readAll());
+        QJsonObject root = doc.object();
+        QJsonArray choices = root["choices"].toArray();
+        if (choices.isEmpty()) {
+            emit synthesisError("返回数据格式错误");
+            return;
+        }
+
+        QString audioData = choices[0].toObject()["message"].toObject()["audio"].toObject()["data"].toString();
+        if (audioData.isEmpty()) {
+            emit synthesisError("返回数据中没有音频内容");
+            return;
+        }
+
+        QByteArray audioBytes = QByteArray::fromBase64(audioData.toUtf8());
+
+        delete m_tempFile;
+        m_tempFile = new QTemporaryFile(QDir::tempPath() + "/mimo_clone_XXXXXX." + (format == "wav" ? "wav" : "pcm"));
+        if (!m_tempFile->open()) {
+            emit synthesisError("无法创建临时文件");
+            return;
+        }
+        m_tempFile->write(audioBytes);
+        m_tempFile->flush();
+
+        emit synthesisFinished(m_tempFile->fileName());
+    });
+}
+
 void TTSEngine::play(const QString &filePath) {
     if (filePath.isEmpty() || !QFile::exists(filePath)) {
         emit synthesisError("音频文件不存在");

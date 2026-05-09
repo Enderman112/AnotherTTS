@@ -110,6 +110,13 @@ void MainWindow::buildUi() {
     m_statusLabel = new QLabel("就绪");
     m_statusLabel->setFrameStyle(QFrame::Panel | QFrame::Sunken);
     mainLayout->addWidget(m_statusLabel);
+
+    auto *versionLabel = new QLabel("v1.1.0");
+    versionLabel->setAlignment(Qt::AlignRight);
+    auto palette = versionLabel->palette();
+    palette.setColor(QPalette::WindowText, Qt::gray);
+    versionLabel->setPalette(palette);
+    mainLayout->addWidget(versionLabel);
 }
 
 QWidget *MainWindow::buildTtsTab() {

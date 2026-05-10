@@ -7,11 +7,8 @@ set(CMAKE_AUTOMOC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Network Multimedia)
 
-if(APPLE)
-    set(MACOSX_BUNDLE TRUE)
-endif()
-
 add_executable(tts
+    MACOSX_BUNDLE
     main.cpp
     mainwindow.h mainwindow.cpp
     config.h config.cpp

@@ -22,11 +22,13 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
       
+      - name: Deploy Qt
+        run: |
+          ${{ env.Qt6_DIR }}/bin/macdeployqt build/tts.app
+      
       - name: Package
         run: |
-          mkdir -p release
-          cp build/tts release/
-          cd release && tar -czf ../tts-macos.tar.gz *
+          cd build && tar -czf ../tts-macos.tar.gz tts.app
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4
@@ -50,8 +52,12 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build --config Release
       
+      - name: Deploy Qt
+        run: |
+          ${{ env.Qt6_DIR }}\bin\windeployqt build\Release\tts.exe
+      
       - name: Package
-        run: Compress-Archive -Path build/Release/tts.exe -DestinationPath tts-windows.zip
+        run: Compress-Archive -Path build\Release\* -DestinationPath tts-windows.zip
       
       - name: Upload artifact
         uses: actions/upload-artifact@v4

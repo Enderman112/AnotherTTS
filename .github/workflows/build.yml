@@ -54,7 +54,7 @@ jobs:
       
       - name: Deploy Qt
         run: |
-          ${{ env.Qt6_DIR }}\bin\windeployqt build\Release\tts.exe
+          windeployqt build\Release\tts.exe
       
       - name: Package
         run: Compress-Archive -Path build\Release\* -DestinationPath tts-windows.zip

@@ -26,6 +26,10 @@ jobs:
         run: |
           macdeployqt build/tts.app
       
+      - name: Sign
+        run: |
+          codesign --force --deep -s - build/tts.app
+      
       - name: Package
         run: |
           cd build && tar -czf ../tts-macos.tar.gz tts.app

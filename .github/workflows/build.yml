@@ -24,7 +24,7 @@ jobs:
       
       - name: Deploy Qt
         run: |
-          ${{ env.Qt6_DIR }}/bin/macdeployqt build/tts.app
+          macdeployqt build/tts.app
       
       - name: Package
         run: |

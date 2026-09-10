@@ -6,10 +6,16 @@ on:
   workflow_dispatch:
 
 env:
-  # Qt 6.7.0 的官方 macOS 包在 CMake config 里硬编码了 -framework AGL，
-  # 而 AGL 已在 macOS 26 (Tahoe) 中被移除，导致 macOS 链接失败。
-  # 6.11.x 已移除该引用，且与本机开发版本保持一致。
-  QT_VERSION: '6.11.2'
+  # 固定 Qt 版本，避免 install-qt-action 默认行为变化导致构建不可复现。
+  #
+  # 为什么不升到 6.11.x/6.12：它们的 Windows 包尚未发布（Updates.xml 404），
+  # 只有 macOS/Linux 可用，Windows 构建会直接失败。
+  # 6.10.3 是当前三平台都有完整发布的最高版本。
+  #
+  # 为什么不留在 6.7.0：其 macOS 官方包在 CMake config 里硬编码了
+  # -framework AGL，而 AGL 已在 macOS 26 (Tahoe) 中被移除，
+  # macos-latest 漂移到 macOS 26 后链接必然失败。6.10.3 已无该引用。
+  QT_VERSION: '6.10.3'
 
 jobs:
   build-macos:

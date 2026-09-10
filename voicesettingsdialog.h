@@ -17,6 +17,7 @@ public:
 private slots:
     void onAdd();
     void onRemove();
+    void onAccept();
 
 private:
     void loadVoices();

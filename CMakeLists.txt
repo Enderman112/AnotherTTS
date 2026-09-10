@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(tts LANGUAGES CXX)
+project(tts VERSION 1.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,10 +16,19 @@ add_executable(tts
     voicesettingsdialog.h voicesettingsdialog.cpp
 )
 
+target_compile_definitions(tts PRIVATE APP_VERSION="${PROJECT_VERSION}")
+
 target_link_libraries(tts PRIVATE
     Qt6::Core
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
     Qt6::Multimedia
+)
+
+set_target_properties(tts PROPERTIES
+    MACOSX_BUNDLE_BUNDLE_NAME "TTS"
+    MACOSX_BUNDLE_GUI_IDENTIFIER "com.example.tts"
+    MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
 )

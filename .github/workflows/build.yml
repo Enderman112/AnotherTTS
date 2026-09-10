@@ -5,6 +5,12 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
+env:
+  # Qt 6.7.0 的官方 macOS 包在 CMake config 里硬编码了 -framework AGL，
+  # 而 AGL 已在 macOS 26 (Tahoe) 中被移除，导致 macOS 链接失败。
+  # 6.11.x 已移除该引用，且与本机开发版本保持一致。
+  QT_VERSION: '6.11.2'
+
 jobs:
   build-macos:
     runs-on: macos-latest
@@ -14,7 +20,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.0'
+          version: '${{ env.QT_VERSION }}'
           modules: 'qtmultimedia'
       
       - name: Build
@@ -48,7 +54,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.0'
+          version: '${{ env.QT_VERSION }}'
           modules: 'qtmultimedia'
       
       - name: Build
@@ -82,7 +88,7 @@ jobs:
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: '6.7.0'
+          version: '${{ env.QT_VERSION }}'
           modules: 'qtmultimedia'
       
       - name: Build

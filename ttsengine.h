@@ -18,9 +18,12 @@ public:
     // ChatCompletions: MiMo 私有协议，POST /chat/completions，音频以 base64 内嵌在 JSON 里。
     // OpenAiSpeech:    OpenAI 标准协议，POST /audio/speech，响应体是原始音频字节。
     //                  vLLM / LM Studio / LocalAI / Speaches / Kokoro-FastAPI 等本地服务都用这个。
+    // DeepSeekTts:     DeepSeek 工具 API，POST /tools/tts，响应体是原始音频字节。
+    //                  没有 model，只有 voice_id(stella/tide)，不支持风格与音色复刻。
     enum class ApiMode {
         ChatCompletions,
         OpenAiSpeech,
+        DeepSeekTts,
     };
 
     struct Request {

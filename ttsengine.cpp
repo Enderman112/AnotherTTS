@@ -52,6 +52,42 @@ QString shellForStylePrompt(const QString &stylePrompt) {
     return stylePrompt.trimmed();
 }
 
+// 我们内部的 "pcm16" 在 OpenAI / DeepSeek 两种标准协议里都叫 "pcm"。
+QString wireFormat(const QString &format) {
+    return format.compare("pcm16", Qt::CaseInsensitive) == 0 ? QStringLiteral("pcm")
+                                                             : QStringLiteral("wav");
+}
+
+// DeepSeek TTS 按"计费字符"限额：汉字算 2 个，其余算 1 个，单次上限 10000。
+// 宽字符（CJK 表意文字、假名、谚文、全角标点等）按 2 计，与官方计费口径一致。
+int billedCharCount(const QString &text) {
+    int count = 0;
+    for (const QChar ch : text) {
+        const ushort u = ch.unicode();
+        const bool wide = (u >= 0x1100 && u <= 0x11FF)     // 谚文字母
+            || (u >= 0x2E80 && u <= 0xA4CF)                // CJK 部首 / 假名 / 表意文字
+            || (u >= 0xAC00 && u <= 0xD7A3)                // 谚文音节
+            || (u >= 0xF900 && u <= 0xFAFF)                // CJK 兼容表意文字
+            || (u >= 0xFF00 && u <= 0xFF60);               // 全角标点
+        count += wide ? 2 : 1;
+    }
+    return count;
+}
+
+// 把常见 HTTP 状态码翻成能直接照做的提示，避免用户只看到一个裸错误码。
+QString httpStatusHint(int status) {
+    switch (status) {
+    case 400: return QStringLiteral("（文本为空或未通过内容审核）");
+    case 401: return QStringLiteral("（API Key 无效）");
+    case 403: return QStringLiteral("（无权访问该接口）");
+    case 404: return QStringLiteral("（接口路径不存在，请检查 API 地址）");
+    case 429: return QStringLiteral("（并发超限或触发限速，请稍后重试）");
+    case 503: return QStringLiteral("（服务繁忙，请稍后重试）");
+    case 504: return QStringLiteral("（合成超时）");
+    default:  return QString();
+    }
+}
+
 } // namespace
 
 TTSEngine::TTSEngine(QObject *parent)
@@ -89,13 +125,20 @@ QStringList TTSEngine::defaultModels() {
 }
 
 TTSEngine::ApiMode TTSEngine::apiModeFromString(const QString &value) {
-    return value.compare(QLatin1String("speech"), Qt::CaseInsensitive) == 0
-        ? ApiMode::OpenAiSpeech
-        : ApiMode::ChatCompletions;
+    if (value.compare(QLatin1String("speech"), Qt::CaseInsensitive) == 0)
+        return ApiMode::OpenAiSpeech;
+    if (value.compare(QLatin1String("deepseek"), Qt::CaseInsensitive) == 0)
+        return ApiMode::DeepSeekTts;
+    return ApiMode::ChatCompletions;
 }
 
 QString TTSEngine::apiModeToString(ApiMode mode) {
-    return mode == ApiMode::OpenAiSpeech ? QStringLiteral("speech") : QStringLiteral("chat");
+    switch (mode) {
+    case ApiMode::OpenAiSpeech: return QStringLiteral("speech");
+    case ApiMode::DeepSeekTts:  return QStringLiteral("deepseek");
+    case ApiMode::ChatCompletions: break;
+    }
+    return QStringLiteral("chat");
 }
 
 bool TTSEngine::isLocalEndpoint(const QString &apiBase) {
@@ -172,7 +215,11 @@ bool TTSEngine::beginRequest(QNetworkReply *reply) {
 }
 
 void TTSEngine::fetchModels(const QString &apiBase, const QString &apiKey, ApiMode mode) {
-    Q_UNUSED(mode)
+    if (mode == ApiMode::DeepSeekTts) {
+        // DeepSeek 的 TTS 接口没有 model 参数，/models 列的是对话模型，列出来只会误导。
+        emit modelsError("DeepSeek TTS 没有模型概念，音色固定为 stella / tide");
+        return;
+    }
 
     const QString base = normalizedBase(apiBase);
     if (base.isEmpty()) {
@@ -251,14 +298,37 @@ void TTSEngine::synthesize(const Request &request) {
         return;
     }
 
+    if (request.mode == ApiMode::DeepSeekTts) {
+        // DeepSeek 工具 API：POST /tools/tts
+        // 没有 model，也没有风格/音色复刻；音色只有 stella(女,默认) / tide(男)。
+        const int billed = billedCharCount(text);
+        if (billed > 10000) {
+            emit synthesisError(QString("文本超出 DeepSeek 单次上限：%1 计费字符 / 上限 10000"
+                                        "（汉字算 2 个字符，其余算 1 个）").arg(billed));
+            return;
+        }
+        if (text.toUtf8().size() > 64 * 1024) {
+            emit synthesisError("文本超出 DeepSeek 请求体上限：64 KiB");
+            return;
+        }
+
+        QJsonObject payload;
+        payload["text"] = text;
+        payload["voice_id"] = request.voice.isEmpty() ? QStringLiteral("stella") : request.voice;
+        payload["format"] = wireFormat(request.format);
+        // 朗读前去掉 Markdown 标记；这是官方默认值，便于直接朗读带格式的回答。
+        payload["filter_markdown"] = true;
+
+        postRequest(request, payload, QStringLiteral("/tools/tts"), QStringLiteral("tts_"));
+        return;
+    }
+
     if (request.mode == ApiMode::OpenAiSpeech) {
         QJsonObject payload;
         payload["model"] = request.model;
         payload["input"] = text;
         payload["voice"] = request.voice;
-        payload["response_format"] = request.format.compare("pcm16", Qt::CaseInsensitive) == 0
-            ? QStringLiteral("pcm")
-            : QStringLiteral("wav");
+        payload["response_format"] = wireFormat(request.format);
         const QString style = shellForStylePrompt(request.stylePrompt);
         if (!style.isEmpty())
             payload["instructions"] = style;   // gpt-4o-mini-tts 及部分本地服务支持
@@ -378,11 +448,12 @@ void TTSEngine::postRequest(const Request &request, const QJsonObject &payload,
     if (!beginRequest(reply))
         return;
 
-    const bool speechMode = request.mode == ApiMode::OpenAiSpeech;
+    // ChatCompletions 回 JSON+base64；其余协议都直接回原始音频字节。
+    const bool rawAudio = request.mode != ApiMode::ChatCompletions;
     const QString format = request.format;
 
     connect(reply, &QNetworkReply::finished, this,
-            [this, reply, speechMode, format, tempPrefix]() {
+            [this, reply, rawAudio, format, tempPrefix]() {
         if (m_activeReply == reply)
             m_activeReply = nullptr;
 
@@ -400,14 +471,15 @@ void TTSEngine::postRequest(const Request &request, const QJsonObject &payload,
             const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
             const QByteArray body = reply->readAll();
             const QString detail = extractApiError(body);
-            emit synthesisError(QString("API 请求失败: HTTP %1 - %2%3")
+            emit synthesisError(QString("API 请求失败: HTTP %1%2 - %3%4")
                                     .arg(httpStatus)
+                                    .arg(httpStatusHint(httpStatus))
                                     .arg(reply->errorString())
                                     .arg(detail.isEmpty() ? QString() : QStringLiteral("\n") + detail));
             return;
         }
 
-        if (speechMode)
+        if (rawAudio)
             handleSpeechReply(reply, format, tempPrefix);
         else
             handleChatReply(reply, format, tempPrefix);

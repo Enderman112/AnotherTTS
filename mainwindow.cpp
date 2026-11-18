@@ -42,6 +42,9 @@ const QList<ApiPreset> &apiPresets() {
         {QStringLiteral("小米 MiMo（云端）"),
          QStringLiteral("https://api.xiaomimimo.com/v1"), TTSEngine::ApiMode::ChatCompletions,
          QStringLiteral("mimo-v2.5-tts"), QStringLiteral("mimo_default")},
+        {QStringLiteral("DeepSeek 官方 TTS（云端）"),
+         QStringLiteral("https://api.deepseek.com/v1"), TTSEngine::ApiMode::DeepSeekTts,
+         QString(), QStringLiteral("stella")},
         {QStringLiteral("本地 Speaches / openedai-speech :8000"),
          QStringLiteral("http://127.0.0.1:8000/v1"), TTSEngine::ApiMode::OpenAiSpeech,
          QStringLiteral("tts-1"), QStringLiteral("alloy")},
@@ -135,9 +138,11 @@ QWidget *MainWindow::buildApiGroup() {
                          TTSEngine::apiModeToString(TTSEngine::ApiMode::ChatCompletions));
     m_modeCombo->addItem("OpenAI /audio/speech（原始音频，本地服务常用）",
                          TTSEngine::apiModeToString(TTSEngine::ApiMode::OpenAiSpeech));
+    m_modeCombo->addItem("DeepSeek /tools/tts（stella / tide，原始音频）",
+                         TTSEngine::apiModeToString(TTSEngine::ApiMode::DeepSeekTts));
     connect(m_modeCombo, &QComboBox::currentIndexChanged, this, [this](int) {
         syncPresetSelection();
-        updateModeHint();
+        updateModeUi();
     });
     apiLayout->addRow("接口协议:", m_modeCombo);
 
@@ -186,9 +191,9 @@ QWidget *MainWindow::buildTtsTab() {
     m_modelCombo->setInsertPolicy(QComboBox::NoInsert);
     paramLayout->addWidget(m_modelCombo, 0, 1);
 
-    auto *refreshModelsBtn = new QPushButton("刷新");
-    connect(refreshModelsBtn, &QPushButton::clicked, this, &MainWindow::onFetchModels);
-    paramLayout->addWidget(refreshModelsBtn, 0, 2);
+    m_refreshModelsBtn = new QPushButton("刷新");
+    connect(m_refreshModelsBtn, &QPushButton::clicked, this, &MainWindow::onFetchModels);
+    paramLayout->addWidget(m_refreshModelsBtn, 0, 2);
 
     m_onlyTtsCheck = new QCheckBox("仅 TTS");
     m_onlyTtsCheck->setToolTip("勾选后只显示模型名里带 \"tts\" 的条目。\n"
@@ -337,18 +342,50 @@ void MainWindow::loadConfig() {
         m_formatCombo->setCurrentIndex(formatIdx);
 
     syncPresetSelection();
-    updateModeHint();
+    updateModeUi();
 }
 
-void MainWindow::updateModeHint() {
-    if (!m_modeHint)
+void MainWindow::updateModeUi() {
+    if (!m_modeHint || !m_modeCombo)
         return;
-    const bool speech = TTSEngine::apiModeFromString(m_modeCombo->currentData().toString())
-        == TTSEngine::ApiMode::OpenAiSpeech;
-    m_modeHint->setText(speech
-        ? QStringLiteral("本地服务：填 http://127.0.0.1:端口/v1，Key 可留空，"
-                         "点\"刷新\"可读取模型列表。")
-        : QStringLiteral("云端 MiMo 服务：需要填写 API Key。"));
+
+    const TTSEngine::ApiMode mode =
+        TTSEngine::apiModeFromString(m_modeCombo->currentData().toString());
+    const bool deepseek = mode == TTSEngine::ApiMode::DeepSeekTts;
+
+    // DeepSeek 的 TTS 接口没有 model、没有风格参数、也没有可拉取的 TTS 模型列表，
+    // 把这些不生效的控件直接禁用，免得用户以为填了有用。
+    if (m_modelCombo) m_modelCombo->setEnabled(!deepseek);
+    if (m_refreshModelsBtn) m_refreshModelsBtn->setEnabled(!deepseek);
+    if (m_onlyTtsCheck) m_onlyTtsCheck->setEnabled(!deepseek);
+    if (m_styleEdit) {
+        m_styleEdit->setEnabled(!deepseek);
+        m_styleEdit->setPlaceholderText(deepseek
+            ? QStringLiteral("DeepSeek TTS 不支持风格控制")
+            : QStringLiteral("留空则不发送。MiMo 走 user 消息，OpenAI 协议走 instructions 字段。"));
+    }
+    // 切换协议时把该协议的音色补进下拉，否则用户无从选择。
+    if (deepseek && m_voiceCombo) {
+        for (const char *voice : {"stella", "tide"}) {
+            if (m_voiceCombo->findText(QLatin1String(voice)) < 0)
+                m_voiceCombo->addItem(QLatin1String(voice));
+        }
+    }
+
+    switch (mode) {
+    case TTSEngine::ApiMode::OpenAiSpeech:
+        m_modeHint->setText(QStringLiteral(
+            "本地服务：填 http://127.0.0.1:端口/v1，Key 可留空，点\"刷新\"可读取模型列表。"));
+        break;
+    case TTSEngine::ApiMode::DeepSeekTts:
+        m_modeHint->setText(QStringLiteral(
+            "DeepSeek 工具 API：地址 https://api.deepseek.com/v1，音色 stella(女)/tide(男)，"
+            "语种自动识别。汉字算 2 个计费字符，单次上限 10000 计费字符 / 64 KiB。"));
+        break;
+    case TTSEngine::ApiMode::ChatCompletions:
+        m_modeHint->setText(QStringLiteral("云端 MiMo 服务：需要填写 API Key。"));
+        break;
+    }
 }
 
 QString MainWindow::currentFormat() const {
@@ -397,12 +434,18 @@ void MainWindow::applyPreset(int index) {
             m_modeCombo->setCurrentIndex(modeIdx);
     }
 
-    if (!preset.model.isEmpty())
+    if (!preset.model.isEmpty()) {
+        if (m_modelCombo->findText(preset.model) < 0)
+            m_modelCombo->addItem(preset.model);
         m_modelCombo->setEditText(preset.model);
-    if (!preset.voice.isEmpty())
+    }
+    if (!preset.voice.isEmpty()) {
+        if (m_voiceCombo->findText(preset.voice) < 0)
+            m_voiceCombo->addItem(preset.voice);
         m_voiceCombo->setEditText(preset.voice);
+    }
 
-    updateModeHint();
+    updateModeUi();
     m_statusLabel->setText(QString("已切换到预设: %1").arg(preset.name));
 }
 
@@ -477,7 +520,11 @@ bool MainWindow::checkReady(const QString &text) {
                              "请填写 API Key（本地 / 内网地址可以留空）");
         return false;
     }
-    if (m_modelCombo->currentText().trimmed().isEmpty()) {
+    // DeepSeek TTS 没有 model 参数，不要求填模型名。
+    const TTSEngine::ApiMode mode =
+        TTSEngine::apiModeFromString(m_modeCombo->currentData().toString());
+    if (mode != TTSEngine::ApiMode::DeepSeekTts
+        && m_modelCombo->currentText().trimmed().isEmpty()) {
         QMessageBox::warning(this, "提示", "请选择或填写模型名");
         return false;
     }

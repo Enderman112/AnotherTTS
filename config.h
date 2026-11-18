@@ -17,7 +17,8 @@ public:
     QString apiKey() const;
     void setApiKey(const QString &value);
 
-    // "chat" = MiMo /chat/completions，"speech" = OpenAI 标准 /audio/speech
+    // "chat" = MiMo /chat/completions，"speech" = OpenAI 标准 /audio/speech，
+    // "deepseek" = DeepSeek 工具 API /tools/tts
     QString apiMode() const;
     void setApiMode(const QString &value);
 

@@ -55,7 +55,7 @@ private:
     void applyPreset(int index);
     void syncPresetSelection();
     void applyModelFilter();
-    void updateModeHint();
+    void updateModeUi();
     bool checkReady(const QString &text);
     bool checkCloneReady(const QString &text);
 
@@ -79,6 +79,7 @@ private:
     QCheckBox *m_onlyTtsCheck;
     QPlainTextEdit *m_styleEdit;
     QPlainTextEdit *m_textEdit;
+    QPushButton *m_refreshModelsBtn;
     QPushButton *m_ttsPlayBtn;
     QPushButton *m_ttsStopBtn;
     QPushButton *m_ttsSaveBtn;

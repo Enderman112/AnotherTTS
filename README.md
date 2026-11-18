@@ -7,10 +7,11 @@
 
 - 文本转语音合成
 - 音色复刻（上传参考音频克隆声音，MiMo 协议）
-- 风格控制（自然语言描述语气风格）
-- 两种接口协议：
+- 风格控制（自然语言描述语气风格，MiMo / OpenAI 协议）
+- 三种接口协议：
   - **MiMo `/chat/completions`** —— 音频以 base64 内嵌在 JSON 里
   - **OpenAI `/audio/speech`** —— 响应体是原始音频字节，本地服务通用
+  - **DeepSeek `/tools/tts`** —— 响应体是原始音频字节，音色 stella / tide
 - 本地部署服务支持（不需要 API Key）
 - 实时播放
 - 保存音频文件（统一保存为 WAV）
@@ -44,6 +45,7 @@ cmake --build build
 | 预设 | 默认地址 |
 | --- | --- |
 | 小米 MiMo（云端） | `https://api.xiaomimimo.com/v1` |
+| DeepSeek 官方 TTS（云端） | `https://api.deepseek.com/v1` |
 | Speaches / openedai-speech | `http://127.0.0.1:8000/v1` |
 | Kokoro-FastAPI | `http://127.0.0.1:8880/v1` |
 | LocalAI | `http://127.0.0.1:8080/v1` |
@@ -54,12 +56,33 @@ cmake --build build
 - **本地 / 内网地址不需要 API Key**。识别范围包括 `localhost`、`127.0.0.1`、`::1`、
   `*.local`、`10.x`、`192.168.x`、`172.16–31.x`、`169.254.x` 以及 IPv6 `fc00::/7`、`fe80::`。
 - **接口协议**要和服务端一致。本地服务基本都是 OpenAI 标准的 `/audio/speech`，
-  选 `OpenAI /audio/speech`；小米 MiMo 选 `MiMo /chat/completions`。
+  选 `OpenAI /audio/speech`；小米 MiMo 选 `MiMo /chat/completions`；
+  DeepSeek 选 `DeepSeek /tools/tts`。
 - **模型名可以手填**。本地服务的模型名往往不在下拉列表里，直接输入即可；
   点「刷新」会请求 `<API 地址>/models` 拉取列表。
 - **「仅 TTS」开关**默认勾选，只显示模型名里带 `tts` 的条目。
   本地服务的模型名常常不含 `tts`（如 `kokoro`、`tts-1`），必要时取消勾选。
-- **音色复刻**依赖 MiMo 私有的 `voiceclone` 协议，切到 `/audio/speech` 时不可用。
+- **音色复刻**依赖 MiMo 私有的 `voiceclone` 协议，切到其他协议时不可用。
+
+## 接入 DeepSeek TTS
+
+选「DeepSeek 官方 TTS（云端）」预设，或在接口协议里选 `DeepSeek /tools/tts`
+并把地址填成 `https://api.deepseek.com/v1`。
+
+- 请求：`POST /v1/tools/tts`，body 为 `{text, voice_id, format, filter_markdown}`
+- 音色：`stella`（女声，默认）、`tide`（男声）
+- 语种：自动识别，支持普通话、粤语、英语、日语、韩语、马来语、阿拉伯语、
+  印尼语、泰语、越南语，没有语种参数
+- 限额：单次最多 10000 计费字符（**汉字算 2 个，其余算 1 个**）且请求体不超过 64 KiB；
+  单次最多返回 30 分钟音频
+- 计费：1.5 元/万字符（限时 5 折价）
+- 不支持：模型选择、风格控制、音色复刻、语速调节
+
+该协议下「模型」「刷新」「仅 TTS」「风格控制」会**自动禁用**，因为 DeepSeek TTS
+没有对应参数，留着只会让人误以为填了有用。超限的文本会在本地直接拦下并提示，
+不必等服务端返回 400。
+
+详见 <https://api-docs.deepseek.com/zh-cn/guides/tts/>。
 
 ### 验证本地服务是否连通
 
@@ -72,7 +95,7 @@ curl http://127.0.0.1:8880/v1/models
 | 选项 | 发给服务端的参数 | 本地表现 |
 | --- | --- | --- |
 | `wav` | `wav` / `response_format=wav` | 直接保存，兼容性最好 |
-| `pcm16` | `pcm16` / `response_format=pcm` | 裸 PCM（24kHz 单声道 16bit），本地自动补 WAV 头 |
+| `pcm16` | `pcm16` / `response_format=pcm` / `format=pcm` | 裸 PCM（24kHz 单声道 16bit），本地自动补 WAV 头 |
 
 两种格式最终都保存为 `.wav`，因为播放器和大多数工具无法直接识别无容器头的裸 PCM。
 
@@ -80,7 +103,7 @@ curl http://127.0.0.1:8880/v1/models
 
 配置文件保存在 `~/.tts_gui_config.json`，包含：
 
-- API 地址、API Key、接口协议（`chat` / `speech`）
+- API 地址、API Key、接口协议（`chat` / `speech` / `deepseek`）
 - 模型、声音、输出格式
 - 是否只显示 TTS 模型
 - 自定义音色列表
